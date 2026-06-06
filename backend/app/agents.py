@@ -14,10 +14,14 @@ def run_epidemiologist_agent(payload: dict) -> str:
         return "Epidemiologist Agent: GEMINI_API_KEY is missing. Cannot run LLM analysis."
         
     model = genai.GenerativeModel("gemini-1.5-flash")
+    user_prompt = payload.get("user_prompt", "")
+    context_instruction = f"Skenario Spesifik dari Pengguna: {user_prompt}\nFokuskan analisis Anda untuk menjawab skenario ini." if user_prompt else ""
     
     prompt = f"""
 Anda adalah seorang Agen Epidemiolog Medis senior.
 Tugas Anda adalah menganalisis data kesehatan masyarakat berikut secara murni dari sudut pandang medis/klinis dan urgensi kesehatan, tanpa mempedulikan anggaran biaya.
+
+{context_instruction}
 
 Data Kesehatan:
 {json.dumps(payload, indent=2)}
@@ -44,10 +48,14 @@ def run_economist_agent(payload: dict) -> str:
         return "Health Economist Agent: GEMINI_API_KEY is missing. Cannot run LLM analysis."
         
     model = genai.GenerativeModel("gemini-1.5-flash")
+    user_prompt = payload.get("user_prompt", "")
+    context_instruction = f"Skenario Spesifik dari Pengguna: {user_prompt}\nFokuskan analisis finansial Anda untuk menjawab skenario ini." if user_prompt else ""
     
     prompt = f"""
 Anda adalah seorang Agen Ekonom Kesehatan senior.
 Tugas Anda adalah menganalisis kapasitas finansial negara untuk mendanai program kesehatan masyarakat berdasarkan indikator ekonomi berikut.
+
+{context_instruction}
 
 Data Ekonomi:
 - PDB Per Kapita (GDP per Capita): USD {payload['economic_indicators']['gdp_per_capita']}
@@ -79,10 +87,14 @@ def run_chief_advisor_agent(payload: dict, epidemiologist_notes: str, economist_
         }
         
     model = genai.GenerativeModel("gemini-1.5-flash")
+    user_prompt = payload.get("user_prompt", "")
+    context_instruction = f"Skenario Spesifik dari Pengguna: {user_prompt}\nPastikan sintesis akhir Anda menjawab dan mempertimbangkan skenario ini." if user_prompt else ""
     
     prompt = f"""
 Anda adalah Kepala Penasihat Kebijakan Kesehatan Pemerintah (Chief Policy Advisor).
 Tugas Anda adalah mengambil keputusan akhir dengan mensintesis argumen dari Agen Epidemiolog (urgensi klinis) dan Agen Ekonom Kesehatan (batasan anggaran). Anda harus mencari jalan tengah yang realistis, terukur, dan siap diimplementasikan secara taktis.
+
+{context_instruction}
 
 Data Indikator Kesehatan:
 {json.dumps(payload, indent=2)}

@@ -46,7 +46,8 @@ class HealthONNXModel:
             return [0.854] # Default fallback
             
         # Konversi input menjadi numpy array dengan tipe data float32
-        input_data = np.array([feature_vector], dtype=np.float32)
+        # Karena model LSTM, input di-reshape menjadi 3D: [batch_size, timesteps, features] -> [1, 1, 7]
+        input_data = np.array([[feature_vector]], dtype=np.float32)
         
         # Jalankan inferensi
         outputs = self.session.run([self.output_name], {self.input_name: input_data})

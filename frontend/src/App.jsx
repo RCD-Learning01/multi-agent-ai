@@ -9,7 +9,8 @@ import {
   Shield, 
   ChevronDown,
   BookOpen,
-  PieChart
+  PieChart,
+  Send
 } from 'lucide-react';
 import healthData from './assets/data/health_payload.json';
 import './App.css';
@@ -17,13 +18,19 @@ import './App.css';
 function App() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('payload');
+  const [userPrompt, setUserPrompt] = useState("");
 
   const handleAnalyze = async () => {
     setLoading(true);
     setResult(null);
     try {
-      const response = await axios.post('http://localhost:8000/api/analyze', healthData);
+      // Menambahkan user prompt dinamis ke dalam payload
+      const dynamicPayload = {
+        ...healthData,
+        user_prompt: userPrompt
+      };
+      
+      const response = await axios.post('http://localhost:8000/api/analyze', dynamicPayload);
       setResult(response.data);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -53,16 +60,25 @@ function App() {
       <div className="dashboard-grid">
         {/* Left Column: Controls & Metrics */}
         <div className="controls-section">
+          
           <div className="glass-panel">
             <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Activity size={20} color="var(--accent-cyan)" />
-              Sistem Kendali
+              <BrainCircuit size={20} color="var(--accent-purple)" />
+              Skenario Kebijakan (Chat)
             </h3>
             
+            <textarea
+              className="chat-input"
+              placeholder="Ketik skenario khusus untuk agen AI... (Misal: 'Bagaimana jika anggaran dipotong 2%?')"
+              value={userPrompt}
+              onChange={(e) => setUserPrompt(e.target.value)}
+            ></textarea>
+
             <button 
               className="analyze-btn" 
               onClick={handleAnalyze} 
               disabled={loading}
+              style={{ marginTop: '1rem', width: '100%' }}
             >
               {loading ? (
                 <>
@@ -71,8 +87,8 @@ function App() {
                 </>
               ) : (
                 <>
-                  <Activity size={20} />
-                  Mulai Analisis Multi-Agent
+                  <Send size={20} />
+                  Kirim & Analisis
                 </>
               )}
             </button>
@@ -94,7 +110,7 @@ function App() {
           <div className="glass-panel">
             <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <PieChart size={20} color="var(--accent-blue)" />
-              Visualisasi Indikator
+              Visualisasi Indikator Data
             </h3>
             <div className="chart-container">
               {renderBar("Akses Air Bersih", healthData.infrastructure_indicators.clean_water_access_pct, "var(--accent-cyan)")}
@@ -102,9 +118,6 @@ function App() {
               {renderBar("Tingkat Imunisasi", healthData.clinical_indicators.immunization_rate_pct, "var(--accent-green)")}
               {renderBar("Anggaran (% PDB)", healthData.economic_indicators.health_expenditure_pct * 5, "var(--accent-purple)")} 
             </div>
-            <p style={{fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '1rem', fontStyle: 'italic'}}>
-              *Anggaran dinormalisasi untuk perbandingan visual. Insidensi TB: {healthData.clinical_indicators.tb_incidence_per_100k}/100k.
-            </p>
           </div>
         </div>
 
@@ -113,8 +126,8 @@ function App() {
           {!result && !loading && (
             <div className="glass-panel" style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)' }}>
               <BrainCircuit size={64} style={{ marginBottom: '1rem', opacity: 0.2 }} />
-              <p>Menunggu inisialisasi diskusi agen...</p>
-              <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>Klik tombol "Mulai Analisis Multi-Agent" di panel kiri.</p>
+              <p>Menunggu prompt dari Anda...</p>
+              <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>Silakan ketik skenario kebijakan atau langsung kirim analisis.</p>
             </div>
           )}
 
@@ -123,10 +136,10 @@ function App() {
               <div className="loader" style={{ marginBottom: '1.5rem', color: 'var(--accent-cyan)' }}>
                 <BrainCircuit size={48} />
               </div>
-              <h3 style={{ color: 'var(--accent-cyan)', marginBottom: '0.5rem' }}>Memproses Model & Analisis</h3>
-              <p style={{ color: 'var(--text-muted)' }}>1. Epidemiolog sedang meninjau data klinis...</p>
-              <p style={{ color: 'var(--text-muted)' }}>2. Ekonom sedang menghitung rasio PDB...</p>
-              <p style={{ color: 'var(--text-muted)' }}>3. Kepala Penasihat sedang menyusun sintesis akhir...</p>
+              <h3 style={{ color: 'var(--accent-cyan)', marginBottom: '0.5rem' }}>Memproses Skonario & ONNX</h3>
+              <p style={{ color: 'var(--text-muted)' }}>1. Epidemiolog meninjau dampak medis...</p>
+              <p style={{ color: 'var(--text-muted)' }}>2. Ekonom menghitung kelayakan anggaran...</p>
+              <p style={{ color: 'var(--text-muted)' }}>3. Penasihat menyusun sintesis akhir...</p>
             </div>
           )}
 
@@ -166,11 +179,11 @@ function App() {
                 
                 <div className="details-section">
                   <div className="details-block">
-                    <h4><BrainCircuit size={16} /> Mengapa Gemini / Agen memutuskan hal ini? (Rationale)</h4>
-                    <p>{result.agent_responses?.advisor?.rationale || "Tidak ada penjelasan kompromi."}</p>
+                    <h4><BrainCircuit size={16} /> Mengapa keputusan ini diambil? (Rationale)</h4>
+                    <p>{result.agent_responses?.advisor?.rationale || "Tidak ada penjelasan."}</p>
                   </div>
                   <div className="details-block">
-                    <h4><BookOpen size={16} /> Bukti Referensi Data yang Digunakan</h4>
+                    <h4><BookOpen size={16} /> Referensi & Bukti</h4>
                     <ul>
                       {(result.agent_responses?.advisor?.references || []).map((ref, i) => (
                         <li key={i}>{ref}</li>

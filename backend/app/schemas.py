@@ -24,3 +24,4 @@ class HealthDataPayload(BaseModel):
     economic_indicators: EconomicIndicatorsSchema
     infrastructure_indicators: InfrastructureIndicatorsSchema
     clinical_indicators: ClinicalIndicatorsSchema
+    user_prompt: str | None = None
