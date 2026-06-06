@@ -4,6 +4,14 @@ from app.schemas import HealthDataPayload
 from app.ml_model import HealthONNXModel
 from app.agents import run_epidemiologist_agent, run_economist_agent, run_chief_advisor_agent
 
+import os
+from dotenv import load_dotenv
+import google.generativeai as genai
+
+load_dotenv() # Membaca file .env
+genai.configure(api_key=os.getenv("GEMINI_API_KEY")) # Memasang kunci API
+# --------------------------
+
 app = FastAPI(title="Multi-Agent Health Analyzer API")
 
 # Configure CORS so that frontend (Vite/React at http://localhost:5173) can access the API

@@ -2,38 +2,29 @@ import google.generativeai as genai
 from app.config import config
 import json
 
-# Configure Gemini
+# Konfigurasi kunci API
 if config.GEMINI_API_KEY:
     genai.configure(api_key=config.GEMINI_API_KEY)
 
+# DEFINISI SATU MODEL UNTUK SEMUA (Gunakan gemini-1.5-flash yang dijamin didukung oleh API Anda)
+MODEL_NAME = "gemini-1.5-flash"
+
 def run_epidemiologist_agent(payload: dict) -> str:
-    """
-    Epidemiologist Agent analyzes disease data, water/sanitation, and immunization.
-    """
     if not config.GEMINI_API_KEY:
-        return "Epidemiologist Agent: GEMINI_API_KEY is missing. Cannot run LLM analysis."
+        return "Epidemiologist Agent: GEMINI_API_KEY is missing."
         
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel(MODEL_NAME)
     user_prompt = payload.get("user_prompt", "")
-    context_instruction = f"Skenario Spesifik dari Pengguna: {user_prompt}\nFokuskan analisis Anda untuk menjawab skenario ini." if user_prompt else ""
+    chat_history = payload.get("chat_history", [])
     
-    prompt = f"""
-Anda adalah seorang Agen Epidemiolog Medis senior.
-Tugas Anda adalah menganalisis data kesehatan masyarakat berikut secara murni dari sudut pandang medis/klinis dan urgensi kesehatan, tanpa mempedulikan anggaran biaya.
-
-{context_instruction}
-
-Data Kesehatan:
-{json.dumps(payload, indent=2)}
-
-Analisis Anda harus mencakup:
-1. Penilaian risiko terhadap akses sanitasi ({payload['infrastructure_indicators']['sanitation_access_pct']}%) dan air bersih ({payload['infrastructure_indicators']['clean_water_access_pct']}%).
-2. Urgensi penanganan Penyakit Menular berdasarkan data TB ({payload['clinical_indicators']['tb_incidence_per_100k']} per 100k) dan HIV ({payload['clinical_indicators']['hiv_prevalence_pct']}%).
-3. Status imunitas kelompok berdasarkan tingkat imunisasi ({payload['clinical_indicators']['immunization_rate_pct']}%).
-4. Rekomendasi tindakan medis murni yang mendesak untuk menyelamatkan nyawa.
-
-Berikan analisis yang jelas, tajam, dan profesional dalam Bahasa Indonesia.
-"""
+    history_text = "Riwayat Percakapan Sebelumnya:\n"
+    for msg in chat_history:
+        history_text += f"- User: {msg.get('user', '')}\n- Epidemiolog: {msg.get('epidemiologist', '')[:100]}...\n"
+    
+    context_instruction = f"{history_text if chat_history else ''}\nSkenario Baru dari Pengguna: {user_prompt}\nFokuskan analisis Anda untuk menjawab skenario terbaru ini dengan mengingat konteks di atas." if user_prompt or chat_history else ""
+    
+    prompt = f"""Anda adalah seorang Agen Epidemiolog Medis senior. Tugas Anda adalah menganalisis data kesehatan masyarakat berikut secara murni dari sudut pandang medis/klinis dan urgensi kesehatan, tanpa mempedulikan anggaran biaya. {context_instruction} Data Kesehatan: {json.dumps(payload, indent=2)}. Berikan analisis yang jelas, tajam, dan profesional dalam Bahasa Indonesia."""
+    
     try:
         response = model.generate_content(prompt)
         return response.text
@@ -41,33 +32,22 @@ Berikan analisis yang jelas, tajam, dan profesional dalam Bahasa Indonesia.
         return f"Error running Epidemiologist Agent: {str(e)}"
 
 def run_economist_agent(payload: dict) -> str:
-    """
-    Health Economist Agent analyzes budget constraints and GDP capacity.
-    """
     if not config.GEMINI_API_KEY:
-        return "Health Economist Agent: GEMINI_API_KEY is missing. Cannot run LLM analysis."
+        return "Health Economist Agent: GEMINI_API_KEY is missing."
         
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    # SUDAH DIUBAH KE MODEL_NAME
+    model = genai.GenerativeModel(MODEL_NAME)
     user_prompt = payload.get("user_prompt", "")
-    context_instruction = f"Skenario Spesifik dari Pengguna: {user_prompt}\nFokuskan analisis finansial Anda untuk menjawab skenario ini." if user_prompt else ""
+    chat_history = payload.get("chat_history", [])
     
-    prompt = f"""
-Anda adalah seorang Agen Ekonom Kesehatan senior.
-Tugas Anda adalah menganalisis kapasitas finansial negara untuk mendanai program kesehatan masyarakat berdasarkan indikator ekonomi berikut.
-
-{context_instruction}
-
-Data Ekonomi:
-- PDB Per Kapita (GDP per Capita): USD {payload['economic_indicators']['gdp_per_capita']}
-- Persentase Pengeluaran Kesehatan dari PDB: {payload['economic_indicators']['health_expenditure_pct']}%
-
-Analisis Anda harus mencakup:
-1. Evaluasi kapasitas fiskal negara berdasarkan PDB per kapita dan alokasi anggaran saat ini.
-2. Batasan anggaran yang realistis: Berapa besar skala program kesehatan baru yang bisa didanai tanpa mengganggu stabilitas ekonomi makro negara?
-3. Rekomendasi efisiensi biaya: Di mana sebaiknya anggaran dialokasikan secara taktis (misal pencegahan vs pengobatan)?
-
-Berikan analisis yang realistis, kritis, dan berorientasi pada kendala finansial dalam Bahasa Indonesia.
-"""
+    history_text = "Riwayat Percakapan Sebelumnya:\n"
+    for msg in chat_history:
+        history_text += f"- User: {msg.get('user', '')}\n- Ekonom: {msg.get('economist', '')[:100]}...\n"
+        
+    context_instruction = f"{history_text if chat_history else ''}\nSkenario Baru dari Pengguna: {user_prompt}\nFokuskan analisis finansial Anda untuk menjawab skenario terbaru ini dengan mengingat konteks di atas." if user_prompt or chat_history else ""
+    
+    prompt = f"""Anda adalah seorang Agen Ekonom Kesehatan senior. Tugas Anda adalah menganalisis kapasitas finansial negara. {context_instruction} Data Ekonomi: {json.dumps(payload, indent=2)}. Berikan analisis yang realistis, kritis, dan berorientasi pada kendala finansial dalam Bahasa Indonesia."""
+    
     try:
         response = model.generate_content(prompt)
         return response.text
@@ -75,62 +55,18 @@ Berikan analisis yang realistis, kritis, dan berorientasi pada kendala finansial
         return f"Error running Health Economist Agent: {str(e)}"
 
 def run_chief_advisor_agent(payload: dict, epidemiologist_notes: str, economist_notes: str) -> dict:
-    """
-    Chief Advisor synthesizes the arguments and creates the final policy recommendations,
-    including references and reasons (rationale).
-    """
     if not config.GEMINI_API_KEY:
-        return {
-            "synthesis": "Chief Policy Advisor: GEMINI_API_KEY is missing. Cannot synthesize.",
-            "rationale": "Missing API Key",
-            "references": []
-        }
+        return {"synthesis": "Error: GEMINI_API_KEY is missing.", "rationale": "Missing API Key", "references": []}
         
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    # SUDAH DIUBAH KE MODEL_NAME
+    model = genai.GenerativeModel(MODEL_NAME)
     user_prompt = payload.get("user_prompt", "")
-    context_instruction = f"Skenario Spesifik dari Pengguna: {user_prompt}\nPastikan sintesis akhir Anda menjawab dan mempertimbangkan skenario ini." if user_prompt else ""
     
-    prompt = f"""
-Anda adalah Kepala Penasihat Kebijakan Kesehatan Pemerintah (Chief Policy Advisor).
-Tugas Anda adalah mengambil keputusan akhir dengan mensintesis argumen dari Agen Epidemiolog (urgensi klinis) dan Agen Ekonom Kesehatan (batasan anggaran). Anda harus mencari jalan tengah yang realistis, terukur, dan siap diimplementasikan secara taktis.
-
-{context_instruction}
-
-Data Indikator Kesehatan:
-{json.dumps(payload, indent=2)}
-
-Laporan dari Epidemiolog (Medis):
-{epidemiologist_notes}
-
-Laporan dari Ekonom Kesehatan (Finansial):
-{economist_notes}
-
-Harap keluarkan output dalam format JSON dengan struktur persis seperti berikut (jangan sertakan markdown block ```json atau apa pun di luar JSON yang valid agar bisa diparsing):
-{{
-  "synthesis": "Draft rekomendasi kebijakan publik final yang konkret, berbobot, dan siap diimplementasikan.",
-  "rationale": "Mengapa Anda mengambil keputusan kebijakan seperti ini (penjelasan kompromi antara urgensi medis dan batas ekonomi)?",
-  "references": [
-    "Daftar referensi metrik spesifik dari data yang Anda jadikan dasar (misal: 'Akses Sanitasi 78.2%', 'GDP per Kapita USD 4500', dll.)"
-  ]
-}}
-"""
+    prompt = f"""Anda adalah Kepala Penasihat Kebijakan Kesehatan. Tugas Anda mensintesis argumen dari Epidemiolog dan Ekonom. {user_prompt} Data: {json.dumps(payload, indent=2)}. Laporan Epidemiolog: {epidemiologist_notes}. Laporan Ekonom: {economist_notes}. Keluarkan output JSON valid: {{"synthesis": "...", "rationale": "...", "references": ["..."]}}."""
+    
     try:
         response = model.generate_content(prompt)
-        text = response.text.strip()
-        # Clean potential markdown wrapping
-        if text.startswith("```"):
-            lines = text.splitlines()
-            if lines[0].startswith("```"):
-                lines = lines[1:]
-            if lines[-1].startswith("```"):
-                lines = lines[:-1]
-            text = "\n".join(lines).strip()
-            
-        result = json.loads(text)
-        return result
+        text = response.text.replace("```json", "").replace("```", "").strip()
+        return json.loads(text)
     except Exception as e:
-        return {
-            "synthesis": f"Error running Chief Advisor Agent: {str(e)}",
-            "rationale": "Gagal menghasilkan sintesis otomatis karena format respons atau masalah koneksi.",
-            "references": [f"Metadata Country: {payload['metadata']['country']}"]
-        }
+        return {"synthesis": f"Error: {str(e)}", "rationale": "Gagal.", "references": []}
