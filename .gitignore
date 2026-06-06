@@ -1,0 +1,19 @@
+# --- Python & FastAPI Backend ---
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.venv/
+.env
+
+# --- Node.js & Frontend ---
+node_modules/
+dist/
+build/
+.npm/
+*.log
+
+# --- OS Files ---
+.DS_Store
+Thumbs.db
