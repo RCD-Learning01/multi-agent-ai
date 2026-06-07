@@ -47,11 +47,15 @@ async def analyze_health_data(payload: HealthDataPayload):
     prediction = model.predict(feature_vector)
     accuracy_score = prediction[0] if prediction else 0.0
     
+    import time
+    
     # 2. Run Epidemiologist Agent
     epidemiologist_notes = run_epidemiologist_agent(payload_dict)
+    time.sleep(3) # Delay untuk mencegah limit gratisan (Rate Limit 429)
     
     # 3. Run Health Economist Agent
     economist_notes = run_economist_agent(payload_dict)
+    time.sleep(3) # Delay untuk mencegah limit gratisan
     
     # 4. Run Chief Policy Advisor (Synthesis)
     advisor_synthesis = run_chief_advisor_agent(payload_dict, epidemiologist_notes, economist_notes)
