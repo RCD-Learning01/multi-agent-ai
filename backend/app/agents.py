@@ -37,15 +37,15 @@ def run_epidemiologist_agent(payload: dict) -> str:
         
     model = genai.GenerativeModel(MODEL_NAME)
     user_prompt = payload.get("user_prompt", "")
-    chat_history = payload.get("chat_history", [])
     
-    history_text = "Riwayat Percakapan Sebelumnya:\n"
-    for msg in chat_history:
-        history_text += f"- User: {msg.get('user', '')}\n- Epidemiolog: {msg.get('epidemiologist', '')[:100]}...\n"
+    # Filter payload agar history dan prompt tidak ikut ter-dump
+    data_only = {k: v for k, v in payload.items() if k not in ['chat_history', 'user_prompt']}
     
-    context_instruction = f"{history_text if chat_history else ''}\nSkenario Baru dari Pengguna: {user_prompt}\nFokuskan analisis Anda untuk menjawab skenario terbaru ini dengan mengingat konteks di atas." if user_prompt or chat_history else ""
-    
-    prompt = f"""Anda adalah seorang Agen Epidemiolog Medis senior. Tugas Anda adalah menganalisis data kesehatan masyarakat berikut secara murni dari sudut pandang medis/klinis dan urgensi kesehatan, tanpa mempedulikan anggaran biaya. {context_instruction} Data Kesehatan: {json.dumps(payload, indent=2)}. Berikan analisis yang jelas, tajam, dan profesional dalam Bahasa Indonesia."""
+    prompt = f"""Peran: Epidemiolog Medis.
+Tugas: Analisis klinis/medis dari data (abaikan biaya).
+Skenario: {user_prompt}
+Data: {json.dumps(data_only)}
+Berikan analisis singkat, tajam, & profesional (Bhs Indonesia)."""
     
     try:
         response = call_gemini_with_retry(model, prompt)
@@ -60,15 +60,15 @@ def run_economist_agent(payload: dict) -> str:
     # SUDAH DIUBAH KE MODEL_NAME
     model = genai.GenerativeModel(MODEL_NAME)
     user_prompt = payload.get("user_prompt", "")
-    chat_history = payload.get("chat_history", [])
-    
-    history_text = "Riwayat Percakapan Sebelumnya:\n"
-    for msg in chat_history:
-        history_text += f"- User: {msg.get('user', '')}\n- Ekonom: {msg.get('economist', '')[:100]}...\n"
         
-    context_instruction = f"{history_text if chat_history else ''}\nSkenario Baru dari Pengguna: {user_prompt}\nFokuskan analisis finansial Anda untuk menjawab skenario terbaru ini dengan mengingat konteks di atas." if user_prompt or chat_history else ""
+    # Filter payload agar history dan prompt tidak ikut ter-dump
+    data_only = {k: v for k, v in payload.items() if k not in ['chat_history', 'user_prompt']}
     
-    prompt = f"""Anda adalah seorang Agen Ekonom Kesehatan senior. Tugas Anda adalah menganalisis kapasitas finansial negara. {context_instruction} Data Ekonomi: {json.dumps(payload, indent=2)}. Berikan analisis yang realistis, kritis, dan berorientasi pada kendala finansial dalam Bahasa Indonesia."""
+    prompt = f"""Peran: Ekonom Kesehatan.
+Tugas: Analisis kapasitas finansial negara.
+Skenario: {user_prompt}
+Data: {json.dumps(data_only)}
+Berikan analisis singkat, realistis, & fokus kendala finansial (Bhs Indonesia)."""
     
     try:
         response = call_gemini_with_retry(model, prompt)
@@ -84,7 +84,16 @@ def run_chief_advisor_agent(payload: dict, epidemiologist_notes: str, economist_
     model = genai.GenerativeModel(MODEL_NAME)
     user_prompt = payload.get("user_prompt", "")
     
-    prompt = f"""Anda adalah Kepala Penasihat Kebijakan Kesehatan. Tugas Anda mensintesis argumen dari Epidemiolog dan Ekonom. {user_prompt} Data: {json.dumps(payload, indent=2)}. Laporan Epidemiolog: {epidemiologist_notes}. Laporan Ekonom: {economist_notes}. Keluarkan output JSON valid: {{"synthesis": "...", "rationale": "...", "references": ["..."]}}."""
+    # Filter payload agar history dan prompt tidak ikut ter-dump
+    data_only = {k: v for k, v in payload.items() if k not in ['chat_history', 'user_prompt']}
+    
+    prompt = f"""Peran: Kepala Penasihat Kebijakan Kesehatan.
+Tugas: Sintesis singkat argumen Epidemiolog & Ekonom.
+Skenario: {user_prompt}
+Data: {json.dumps(data_only)}
+Epidemiolog: {epidemiologist_notes}
+Ekonom: {economist_notes}
+Keluarkan output JSON: {{"synthesis": "...", "rationale": "...", "references": ["..."]}}"""
     
     try:
         response = call_gemini_with_retry(model, prompt)

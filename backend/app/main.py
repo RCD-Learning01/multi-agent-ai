@@ -5,6 +5,8 @@ from app.ml_model import HealthONNXModel
 from app.agents import run_epidemiologist_agent, run_economist_agent, run_chief_advisor_agent
 
 import os
+import asyncio
+import time
 from dotenv import load_dotenv
 import google.generativeai as genai
 
@@ -25,6 +27,13 @@ app.add_middleware(
 
 # Initialize ONNX Model
 model = HealthONNXModel()
+
+async def measure_time(func, *args):
+    start_time = time.time()
+    result = await asyncio.to_thread(func, *args)
+    duration = time.time() - start_time
+    time_str = f"{int(duration // 60)}m {duration % 60:.1f}s"
+    return result, time_str
 
 @app.post("/api/analyze")
 async def analyze_health_data(payload: HealthDataPayload):
@@ -47,18 +56,18 @@ async def analyze_health_data(payload: HealthDataPayload):
     prediction = model.predict(feature_vector)
     accuracy_score = prediction[0] if prediction else 0.0
     
-    import time
-    
-    # 2. Run Epidemiologist Agent
-    epidemiologist_notes = run_epidemiologist_agent(payload_dict)
-    time.sleep(3) # Delay untuk mencegah limit gratisan (Rate Limit 429)
-    
-    # 3. Run Health Economist Agent
-    economist_notes = run_economist_agent(payload_dict)
-    time.sleep(3) # Delay untuk mencegah limit gratisan
+    # 2 & 3. Run Epidemiologist Agent & Health Economist Agent Concurrently
+    # We run them in separate threads simultaneously so they don't block each other
+    (epidemiologist_notes, epi_time), (economist_notes, eco_time) = await asyncio.gather(
+        measure_time(run_epidemiologist_agent, payload_dict),
+        measure_time(run_economist_agent, payload_dict)
+    )
     
     # 4. Run Chief Policy Advisor (Synthesis)
-    advisor_synthesis = run_chief_advisor_agent(payload_dict, epidemiologist_notes, economist_notes)
+    # Chief depends on both, so it runs after they finish
+    advisor_synthesis, adv_time = await measure_time(
+        run_chief_advisor_agent, payload_dict, epidemiologist_notes, economist_notes
+    )
     
     return {
         "status": "success",
@@ -69,5 +78,10 @@ async def analyze_health_data(payload: HealthDataPayload):
             "epidemiologist": epidemiologist_notes,
             "economist": economist_notes,
             "advisor": advisor_synthesis
+        },
+        "execution_times": {
+            "epidemiologist": epi_time,
+            "economist": eco_time,
+            "advisor": adv_time
         }
     }

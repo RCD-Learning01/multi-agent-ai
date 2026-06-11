@@ -17,7 +17,7 @@ import defaultHealthData from './assets/data/health_payload.json';
 import ReactMarkdown from 'react-markdown';
 import './App.css';
 
-const ExpandableAgentCard = ({ icon: Icon, title, className, content, children, isAdvisor = false }) => {
+const ExpandableAgentCard = ({ icon: Icon, title, className, content, children, isAdvisor = false, executionTime }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const isError = typeof content === 'string' && (content.includes('Error: 429') || content.toLowerCase().includes('exceeded'));
@@ -27,6 +27,11 @@ const ExpandableAgentCard = ({ icon: Icon, title, className, content, children, 
       <div className="agent-header">
         <div className="agent-icon"><Icon size={20} /></div>
         <div className="agent-title">{title}</div>
+        {executionTime && (
+          <div style={{ marginLeft: 'auto', color: 'white', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.3rem', opacity: 0.8 }}>
+            ⏱️ {executionTime}
+          </div>
+        )}
       </div>
       <div className={`agent-content-wrapper ${isExpanded ? 'expanded' : 'collapsed'}`}>
         <div className={`agent-content ${isExpanded ? '' : 'line-clamp'}`} style={isAdvisor ? { fontSize: '1.05rem', color: '#fff' } : {}}>
@@ -170,7 +175,8 @@ function App() {
           user: payloadPrompt,
           epidemiologist: response.data.agent_responses?.epidemiologist,
           economist: response.data.agent_responses?.economist,
-          advisor: response.data.agent_responses?.advisor
+          advisor: response.data.agent_responses?.advisor,
+          execution_times: response.data.execution_times
         },
         onnx_score: response.data.onnx_accuracy_score
       };
@@ -287,6 +293,7 @@ function App() {
                         title="Epidemiolog"
                         className="agent-epidemiologist"
                         content={msg.raw_data.epidemiologist}
+                        executionTime={msg.raw_data.execution_times?.epidemiologist}
                       />
 
                       <ExpandableAgentCard 
@@ -294,6 +301,7 @@ function App() {
                         title="Ekonom Kesehatan"
                         className="agent-economist"
                         content={msg.raw_data.economist}
+                        executionTime={msg.raw_data.execution_times?.economist}
                       />
 
                       <ExpandableAgentCard 
@@ -302,6 +310,7 @@ function App() {
                         className="agent-advisor"
                         content={msg.raw_data.advisor?.synthesis}
                         isAdvisor={true}
+                        executionTime={msg.raw_data.execution_times?.advisor}
                       />
 
                       <ExpandableAgentCard 
@@ -309,6 +318,7 @@ function App() {
                         title="Dasar Pemikiran (Rationale)"
                         className="agent-advisor"
                         content={msg.raw_data.advisor?.rationale}
+                        executionTime={msg.raw_data.execution_times?.advisor}
                       />
                     </div>
                   </div>
