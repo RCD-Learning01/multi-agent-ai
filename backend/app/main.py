@@ -35,6 +35,10 @@ async def measure_time(func, *args):
     time_str = f"{int(duration // 60)}m {duration % 60:.1f}s"
     return result, time_str
 
+@app.get("/")
+async def root():
+    return {"message": "Selamat datang di API Multi-Agent Health Analyzer. Server Backend berjalan lancar!"}
+
 @app.post("/api/analyze")
 async def analyze_health_data(payload: HealthDataPayload):
     # Convert payload into python dict
