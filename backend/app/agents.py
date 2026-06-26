@@ -1,4 +1,4 @@
-import google.generativeai as genai
+import google.generativeai as genai # pyrefly: ignore [missing-import]
 from app.config import config
 import json
 import time
@@ -8,14 +8,17 @@ import re
 if config.GEMINI_API_KEY:
     genai.configure(api_key=config.GEMINI_API_KEY)
 
-# DEFINISI SATU MODEL UNTUK SEMUA (Gunakan gemini-2.5-flash-lite yang memiliki kuota gratis jauh lebih besar)
-MODEL_NAME = "gemini-2.5-flash-lite"
+# DEFINISI SATU MODEL UNTUK SEMUA (Gunakan gemini-flash-lite-latest yang memiliki kuota gratis)
+MODEL_NAME = "gemini-flash-lite-latest"
 
-def call_gemini_with_retry(model, prompt, max_retries=3):
+def call_gemini_with_retry(model, prompt, max_retries=3, max_tokens=250):
     """Fungsi pembantu untuk memanggil Gemini dengan mekanisme retry otomatis jika terkena limit 429."""
     for attempt in range(max_retries):
         try:
-            return model.generate_content(prompt)
+            return model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(max_output_tokens=max_tokens)
+            )
         except Exception as e:
             error_msg = str(e)
             if "429" in error_msg and "Quota exceeded" in error_msg:
@@ -42,13 +45,13 @@ def run_epidemiologist_agent(payload: dict) -> str:
     data_only = {k: v for k, v in payload.items() if k not in ['chat_history', 'user_prompt']}
     
     prompt = f"""Peran: Epidemiolog Medis.
-Tugas: Analisis klinis/medis dari data (abaikan biaya).
+Tugas: Analisis klinis/medis (abaikan biaya).
 Skenario: {user_prompt}
 Data: {json.dumps(data_only)}
-Berikan analisis singkat, tajam, & profesional (Bhs Indonesia)."""
+Berikan analisis SANGAT SINGKAT, maksimal 2-3 kalimat saja (Bhs Indonesia)."""
     
     try:
-        response = call_gemini_with_retry(model, prompt)
+        response = call_gemini_with_retry(model, prompt, max_tokens=150)
         return response.text
     except Exception as e:
         return f"Error running Epidemiologist Agent: {str(e)}"
@@ -68,10 +71,10 @@ def run_economist_agent(payload: dict) -> str:
 Tugas: Analisis kapasitas finansial negara.
 Skenario: {user_prompt}
 Data: {json.dumps(data_only)}
-Berikan analisis singkat, realistis, & fokus kendala finansial (Bhs Indonesia)."""
+Berikan analisis SANGAT SINGKAT, maksimal 2-3 kalimat saja (Bhs Indonesia)."""
     
     try:
-        response = call_gemini_with_retry(model, prompt)
+        response = call_gemini_with_retry(model, prompt, max_tokens=150)
         return response.text
     except Exception as e:
         return f"Error running Health Economist Agent: {str(e)}"
@@ -87,16 +90,20 @@ def run_chief_advisor_agent(payload: dict, epidemiologist_notes: str, economist_
     # Filter payload agar history dan prompt tidak ikut ter-dump
     data_only = {k: v for k, v in payload.items() if k not in ['chat_history', 'user_prompt']}
     
+    # Extract the predicted risk status for explicit prompting
+    ml_risk_status = payload.get("predicted_health_risk_status", "Tidak Diketahui")
+    
     prompt = f"""Peran: Kepala Penasihat Kebijakan Kesehatan.
-Tugas: Sintesis singkat argumen Epidemiolog & Ekonom.
+Tugas: Sintesis SANGAT SINGKAT argumen Epidemiolog & Ekonom.
 Skenario: {user_prompt}
 Data: {json.dumps(data_only)}
+Prediksi Model ML Objektif: Tingkat kesehatan berada pada '{ml_risk_status}'
 Epidemiolog: {epidemiologist_notes}
 Ekonom: {economist_notes}
-Keluarkan output JSON: {{"synthesis": "...", "rationale": "...", "references": ["..."]}}"""
+Keluarkan JSON: {{"synthesis": "Singkat max 2 kalimat", "rationale": "Singkat 1 kalimat", "references": ["URL singkat"]}}"""
     
     try:
-        response = call_gemini_with_retry(model, prompt)
+        response = call_gemini_with_retry(model, prompt, max_tokens=300)
         text = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(text)
     except Exception as e:

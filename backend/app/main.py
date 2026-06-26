@@ -7,8 +7,8 @@ from app.agents import run_epidemiologist_agent, run_economist_agent, run_chief_
 import os
 import asyncio
 import time
-from dotenv import load_dotenv
-import google.generativeai as genai
+from dotenv import load_dotenv # pyrefly: ignore [missing-import]
+import google.generativeai as genai # pyrefly: ignore [missing-import]
 
 load_dotenv() # Membaca file .env
 genai.configure(api_key=os.getenv("GEMINI_API_KEY")) # Memasang kunci API
@@ -45,30 +45,33 @@ async def analyze_health_data(payload: HealthDataPayload):
     payload_dict = payload.model_dump()
     
     # 1. Run ONNX Model Inference
-    # Create the feature vector
+    # Create the feature vector with exactly 4 features expected by the LSTM model
     feature_vector = [
         payload.economic_indicators.gdp_per_capita,
         payload.economic_indicators.health_expenditure_pct,
         payload.infrastructure_indicators.clean_water_access_pct,
-        payload.infrastructure_indicators.sanitation_access_pct,
-        payload.clinical_indicators.tb_incidence_per_100k,
-        payload.clinical_indicators.hiv_prevalence_pct,
         payload.clinical_indicators.immunization_rate_pct
     ]
     
     # Run prediction
-    prediction = model.predict(feature_vector)
-    accuracy_score = prediction[0] if prediction else 0.0
+    predicted_risk_class, confidence_score = model.predict(feature_vector)
     
-    # 2 & 3. Run Epidemiologist Agent & Health Economist Agent Concurrently
-    # We run them in separate threads simultaneously so they don't block each other
-    (epidemiologist_notes, epi_time), (economist_notes, eco_time) = await asyncio.gather(
-        measure_time(run_epidemiologist_agent, payload_dict),
-        measure_time(run_economist_agent, payload_dict)
-    )
+    # Map predicted class to text label (0: Rendah, 1: Sedang, 2: Tinggi)
+    risk_labels = {0: "Risiko Rendah", 1: "Risiko Sedang", 2: "Risiko Tinggi"}
+    health_risk_status = risk_labels.get(predicted_risk_class, "Risiko Sedang")
+    
+    # Inject health risk status into the payload for the AI agents to read
+    payload_dict["predicted_health_risk_status"] = health_risk_status
+    
+    # 2 & 3. Run Epidemiologist Agent & Health Economist Agent Sequentially
+    # Menjalankan agen secara berurutan dengan jeda agar tidak terkena limit API 429 (Burst Limits)
+    epidemiologist_notes, epi_time = await measure_time(run_epidemiologist_agent, payload_dict)
+    await asyncio.sleep(2) # Memberi sedikit jeda nafas pada API Google
+    
+    economist_notes, eco_time = await measure_time(run_economist_agent, payload_dict)
+    await asyncio.sleep(2) # Memberi jeda lagi sebelum memanggil Chief Advisor
     
     # 4. Run Chief Policy Advisor (Synthesis)
-    # Chief depends on both, so it runs after they finish
     advisor_synthesis, adv_time = await measure_time(
         run_chief_advisor_agent, payload_dict, epidemiologist_notes, economist_notes
     )
@@ -77,7 +80,9 @@ async def analyze_health_data(payload: HealthDataPayload):
         "status": "success",
         "metadata": payload.metadata,
         "processed_records": payload.metadata.total_records,
-        "onnx_accuracy_score": accuracy_score,
+        "predicted_risk_class": predicted_risk_class,
+        "predicted_health_risk_status": health_risk_status,
+        "onnx_accuracy_score": confidence_score,
         "agent_responses": {
             "epidemiologist": epidemiologist_notes,
             "economist": economist_notes,
